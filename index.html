@@ -191,6 +191,13 @@ button.ctl:hover{border-color:var(--faint)}
 .ctl.hot{color:var(--accent);border-color:rgba(245,211,59,.5);background:var(--accent-soft)}
 .setwrap{position:relative;display:inline-flex}
 .pop{position:absolute;bottom:calc(100% + 8px);left:0;z-index:5;background:var(--panel);border:1px solid var(--line2);border-radius:14px;padding:14px;width:min(330px,calc(100vw - 40px));box-shadow:0 12px 40px rgba(0,0,0,.55);display:flex;flex-direction:column;gap:12px}
+.intro .ab{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+.intro .ab>div{border:1px solid var(--line2);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:2px;font-size:13px}
+.intro .ab small{color:var(--faint);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+.intro .ab span{color:var(--muted);font-size:12px}
+@media (max-width:560px){.intro .ab{grid-template-columns:1fr}}
+.chip .ck{width:12px;height:12px;border:1.5px solid currentColor;border-radius:3px;display:inline-grid;place-items:center;font-size:9px;line-height:1;opacity:.8}
+.pcount{display:inline-grid;place-items:center;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--accent);color:#111;font-size:10px;font-weight:800;margin-right:2px}
 .pop h4{margin:0 0 6px;font-size:12px;color:var(--muted);font-weight:600}
 .pop .opts{display:flex;gap:5px;flex-wrap:wrap}
 .pop .notice{font-size:12px;padding:8px 10px;margin-top:8px}
@@ -463,7 +470,9 @@ function renderChips(){
   if(!multi && !m.auto && !m.ratios.includes(d.ratio)) d.ratio = m.ratios.includes("16:9") ? "16:9" : m.ratios[0];
   const first = m.auto ? null : (multi ? d.formats[0] : d.ratio);
   const btn=$("#setBtn");
-  btn.innerHTML = (first?shape(first):"") + settingsLabel();
+  const nR = multi && !m.auto ? d.formats.length : 0;
+  btn.innerHTML = (nR>1 ? `<span class="pcount" title="${nR} ratios selected">${nR}</span>` : (first?shape(first):"")) + settingsLabel();
+  btn.title = multi ? "Ratios, resolution and count. You can pick several ratios." : "Ratio, resolution and count";
   btn.classList.toggle("hot", multi && d.formats.length>1);
   btn.setAttribute("aria-expanded", S.popOpen);
   btn.onclick = () => { S.popOpen=!S.popOpen; if(S.test.on && S.test.pop==null) S.test.pop=Math.round((Date.now()-S.test.t0)/1000); step(); renderChips(); renderNotices(); };
@@ -471,10 +480,10 @@ function renderChips(){
   // Ratio block
   let ratio;
   if(m.auto) ratio = `<h4>Ratio</h4><div class="opts"><span class="chip" aria-pressed="true">Auto</span></div><small>${m.name} follows the start frame.</small>`;
-  else if(multi) ratio = `<h4>Ratios · pick one or more</h4><div class="opts">` + RATIOS.map(r=>{
+  else if(multi) ratio = `<h4>Ratios · pick as many as you need</h4><div class="opts">` + RATIOS.map(r=>{
       const on=d.formats.includes(r), sup=m.ratios.includes(r), any=MODELS.some(x=>x.mode===d.mode && x.ratios.includes(r));
       const title = sup ? `${r} · ${RATIO_USE[r]}` : any ? `${m.name} can't make ${r}. You'll choose another model or skip it.` : `No ${d.mode} model makes ${r} today`;
-      return `<button class="chip ${sup?"":"unsup"}" data-r="${r}" aria-pressed="${on}" title="${title}" ${!any && !on ? "disabled" : ""}>${shape(r)}${r}</button>`;
+      return `<button class="chip ${sup?"":"unsup"}" data-r="${r}" aria-pressed="${on}" title="${title}" ${!any && !on ? "disabled" : ""}><span class="ck" aria-hidden="true">${on?"✓":""}</span>${shape(r)}${r}</button>`;
     }).join("") + `</div><small>Each ratio you pick is generated from one Generate. ${esc(p.name)} ratio kit: ${p.preset.join(" + ")}.</small>` + (()=>{ const none=RATIOS.filter(r=>!MODELS.some(x=>x.mode===d.mode && x.ratios.includes(r))); const cant=RATIOS.filter(r=>!m.ratios.includes(r) && !none.includes(r)); return (none.length||cant.length) ? `<small class="unav">${none.length?`No ${d.mode} model makes ${none.join(", ")} today.`:""}${cant.length?` ${m.name} can't make ${cant.join(", ")}.`:""}</small>` : ""; })();
   else ratio = `<h4>Ratio</h4><div class="opts">` + m.ratios.map(r=>`<button class="chip" data-one="${r}" aria-pressed="${r===d.ratio}">${shape(r)}${r}</button>`).join("") + `</div>`;
   const res = `<div><h4>Resolution</h4><div class="opts">${RES[d.mode].map(x=>`<button class="chip" data-res="${x}" aria-pressed="${x===d.res}">${x}</button>`).join("")}</div></div>`;
