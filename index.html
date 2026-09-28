@@ -300,19 +300,9 @@ button.ctl:hover{border-color:var(--faint)}
   </main>
 </div>
 
-<dialog id="intro" class="wide intro">
+<dialog id="intro" class="intro" style="max-width:420px">
   <h3>Ratio Kit</h3>
   <p>Agencies deliver every ad in several ratios, and each client needs a different set. With Ratio Kit, each client project remembers its ratios, and one Generate makes all of them.</p>
-  <ol>
-        <li><b>One Generate, every ratio.</b> Vitariz's ratio kit is 9:16 + 1:1 (top of the page). Press Generate: a 5-second summary shows exactly what will be sent, with Cancel.</li>
-        <li><b>Change the kit.</b> Open the ratio pill in the composer and add 4:5. "Save as Vitariz ratio kit" makes it stick.</li>
-        <li><b>Approve first, then expand.</b> Generate a single ratio, then press "+ Complete ratio kit" under the image you like. The rest of the kit is made from it.</li>
-        <li><b>Model limits.</b> Switch to Video and Veo 3.1. It can't make 1:1, so you choose what to do instead of getting a silent failure.</li>
-        <li><b>Prompt sync.</b> Remove 9:16, then type "vertical" in the prompt. 9:16 comes back, with Undo.</li>
-        <li><b>Clients stay separate.</b> Open Pelephone, then come back. Each client keeps its own draft, style kit and ratio kit.</li>
-        <li><b>Compare.</b> Switch to "Current Toolkit" at the top right to see today's flow: one ratio per Generate.</li>
-      </ol>
-  <p class="fine">A concept prototype for the Artlist AI Toolkit, by Manor Birman. Images are mocked, so nothing is generated or charged. Not an Artlist product.</p>
   <div class="foot"><button class="btn primary" id="introGo">Start exploring</button></div>
 </dialog>
 
@@ -823,7 +813,7 @@ $("#fbMail").onclick=()=>{
 };
 $("#fbCopy").onclick=async()=>{ try{ await navigator.clipboard.writeText(fbText()); $("#fbMsg").textContent="Copied. Paste it to Manor anywhere."; }catch(e){ $("#fbMsg").textContent="Copy didn't work here. Use WhatsApp or Email."; } };
 $("#introGo").onclick=()=>$("#intro").close();
-$("#introOpen").onclick=()=>$("#intro").showModal();
+$("#introOpen").onclick=()=>{ const g=$("#guide"); g.open=true; g.scrollIntoView({behavior:"smooth",block:"center"}); };
 renderMission();
 render();
 if(!/[?&]skipintro/.test(location.search)) $("#intro").showModal();
