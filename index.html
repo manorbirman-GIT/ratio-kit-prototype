@@ -74,6 +74,8 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .swatches i{width:10px;height:10px;border-radius:50%;display:inline-block;margin-left:-3px;border:1px solid var(--bg)}
 .banner{padding:10px 12px;border-radius:10px;font-size:13px;background:var(--warn-soft);color:var(--warn);border:1px solid rgba(240,169,74,.35)}
 
+.results.isEmpty{min-height:0;padding:12px 14px}
+.results.isEmpty .empty{margin:0;max-width:none;text-align:left}
 .results{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;min-height:230px;padding:14px;border:1px solid var(--line);border-radius:var(--r);background:var(--panel)}
 .empty{color:var(--faint);font-size:13px;align-self:center;margin:auto;text-align:center;max-width:36ch}
 .asset{display:flex;flex-direction:column;gap:6px;width:var(--w)}
@@ -107,10 +109,15 @@ textarea{width:100%;min-height:74px;resize:vertical;background:transparent;borde
 .chip[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);border-color:rgba(245,211,59,.5)}
 .chip.unsup[aria-pressed="true"]{background:var(--warn-soft);color:var(--warn);border-color:rgba(240,169,74,.5)}
 .chip.unsup:not([aria-pressed="true"]){opacity:.55;text-decoration:line-through}
+.chip:disabled{opacity:.3;cursor:not-allowed}
+.unav{display:block;color:var(--warn);margin-top:6px}
 .gen{margin-left:auto;background:var(--accent);color:var(--accent-ink);font-weight:700;padding:9px 18px;border-radius:var(--pill);font-size:14px}
 .gen:disabled{opacity:.4;cursor:not-allowed}
 
 .notice{border-radius:10px;padding:10px 12px;font-size:13px;display:flex;flex-direction:column;gap:8px}
+.fbrow{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding-top:6px;border-top:1px solid rgba(240,169,74,.25)}
+@keyframes shake{0%,100%{transform:none}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.notice.shake{animation:shake .3s 2}
 .notice.warn{background:var(--warn-soft);border:1px solid rgba(240,169,74,.35);color:var(--warn)}
 .notice.info{background:var(--accent-soft);border:1px solid rgba(245,211,59,.35);color:var(--accent)}
 .notice .acts{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
@@ -292,7 +299,7 @@ button.ctl:hover{border-color:var(--faint)}
         <li><b>Approve first, then expand.</b> Generate a single ratio, then press "+ Complete ratio kit" under the image you like. The rest of the kit is made from it.</li>
         <li><b>Model limits.</b> Switch to Video and Veo 3.1. It can't make 1:1, so you choose what to do instead of getting a silent failure.</li>
         <li><b>Prompt sync.</b> Remove 9:16, then type "vertical" in the prompt. 9:16 comes back, with Undo.</li>
-        <li><b>Clients stay separate.</b> Open Pelephone, then come back. Each client keeps its own draft, style kit and ratio kit.</li>
+        <li><b>Clients stay separate.</b> Open Pelephone, then come back. Each client keeps its own style kit and ratio kit.</li>
         <li><b>Compare.</b> Switch to "Current Toolkit" at the top right to see today's flow: one ratio per Generate.</li>
       </ol>
     </details>
@@ -304,6 +311,7 @@ button.ctl:hover{border-color:var(--faint)}
 <dialog id="intro" class="intro" style="max-width:420px">
   <h3>Ratio Kit</h3>
   <p>Agencies deliver every ad in several ratios, and each client needs a different set. With Ratio Kit, each client project remembers its ratios, and one Generate makes all of them.</p>
+  <p class="fine">Mocked data, no login. Nothing is generated or charged, and a refresh resets the demo.</p>
   <div class="foot"><button class="btn primary" id="introGo">Start exploring</button></div>
 </dialog>
 
@@ -340,6 +348,7 @@ button.ctl:hover{border-color:var(--faint)}
   <h3 id="pdTitle">Ratios</h3>
   <p>The ratios this client delivers in. Every new generation for this client starts with them. You can still change them for a single generation in the composer.</p>
   <div class="row" id="pdChips"></div>
+  <small id="pdNote" style="display:block;color:var(--muted);margin:-4px 0 10px"></small>
   <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Also use this ratio kit for</div>
   <div class="row" id="pdOthers"></div>
   <label style="font-size:12px;display:flex;gap:6px;align-items:center;margin-bottom:14px"><input type="checkbox" id="pdDefault"> Suggest them for new clients</label>
@@ -449,7 +458,8 @@ function renderKits(){
 const RES={image:["1K","2K","4K"], video:["720p","1080p"]};
 function settingsLabel(){
   const d=D(), m=M(d.model);
-  const r = m.auto ? "Auto" : S.version==="old" ? d.ratio : (d.formats.join(" + ")||"No ratio");
+  const p=P(), skip = r0 => p.fallback && p.fallback[r0]==="skip" && !m.ratios.includes(r0);
+  const r = m.auto ? "Auto" : S.version==="old" ? d.ratio : (d.formats.filter(x=>!skip(x)).join(" + ")||"No ratio") + (d.formats.some(skip) ? ` (skip ${d.formats.filter(skip).join(", ")})` : "");
   const tail = d.mode==="image" ? `${d.count} ${d.count>1?"images":"image"}` : d.dur;
   return `${r} / ${d.res} / ${tail}`;
 }
@@ -468,10 +478,10 @@ function renderChips(){
   let ratio;
   if(m.auto) ratio = `<h4>Ratio</h4><div class="opts"><span class="chip" aria-pressed="true">Auto</span></div><small>${m.name} follows the start frame.</small>`;
   else if(multi) ratio = `<h4>Ratios · pick one or more</h4><div class="opts">` + RATIOS.map(r=>{
-      const on=d.formats.includes(r), sup=m.ratios.includes(r);
-      const title = sup ? `${r} · ${RATIO_USE[r]}` : `${m.name} can't make ${r}`;
-      return `<button class="chip ${sup?"":"unsup"}" data-r="${r}" aria-pressed="${on}" title="${title}">${shape(r)}${r}</button>`;
-    }).join("") + `</div><small>Each ratio you pick is generated from one Generate. ${esc(p.name)} ratio kit: ${p.preset.join(" + ")}.</small>`;
+      const on=d.formats.includes(r), sup=m.ratios.includes(r), any=MODELS.some(x=>x.mode===d.mode && x.ratios.includes(r));
+      const title = sup ? `${r} · ${RATIO_USE[r]}` : any ? `${m.name} can't make ${r}. You'll choose another model or skip it.` : `No ${d.mode} model makes ${r} today`;
+      return `<button class="chip ${sup?"":"unsup"}" data-r="${r}" aria-pressed="${on}" title="${title}" ${!any && !on ? "disabled" : ""}>${shape(r)}${r}</button>`;
+    }).join("") + `</div><small>Each ratio you pick is generated from one Generate. ${esc(p.name)} ratio kit: ${p.preset.join(" + ")}.</small>` + (()=>{ const none=RATIOS.filter(r=>!MODELS.some(x=>x.mode===d.mode && x.ratios.includes(r))); const cant=RATIOS.filter(r=>!m.ratios.includes(r) && !none.includes(r)); return (none.length||cant.length) ? `<small class="unav">${none.length?`No ${d.mode} model makes ${none.join(", ")} today.`:""}${cant.length?` ${m.name} can't make ${cant.join(", ")}.`:""}</small>` : ""; })();
   else ratio = `<h4>Ratio</h4><div class="opts">` + m.ratios.map(r=>`<button class="chip" data-one="${r}" aria-pressed="${r===d.ratio}">${shape(r)}${r}</button>`).join("") + `</div>`;
   const res = `<div><h4>Resolution</h4><div class="opts">${RES[d.mode].map(x=>`<button class="chip" data-res="${x}" aria-pressed="${x===d.res}">${x}</button>`).join("")}</div></div>`;
   const tail = d.mode==="image"
@@ -528,13 +538,16 @@ function renderNotices(){
     }
     const miss = d.formats.filter(r=>!m.ratios.includes(r) && !(p.fallback && p.fallback[r]));
     if(miss.length){
-      const r=miss[0], alt=bestModelFor(r,d.mode);
-      warnArea.insertAdjacentHTML("beforeend",`<div class="notice warn"><span>${m.name} can't make ${r}${miss.length>1?` or ${miss.slice(1).join(", ")}`:""}. Choose how to handle it before you generate.</span>
-        <div class="acts">${alt?`<button id="fbAlt">Make ${r} with ${alt.name}</button>`:""}<button id="fbSkip">Skip ${r}</button>${alt?`<button id="fbAll">Use ${alt.name} for all</button>`:""}
-        <label><input type="checkbox" id="fbRemember" checked> Remember for ${esc(p.name)}</label></div></div>`);
-      const setFb = v => { const rem=$("#fbRemember").checked; p.fallback = p.fallback||{}; miss.forEach(x=>p.fallback[x]=v); if(!rem) p._tempFb=true; step(); renderChips(); renderNotices(); };
-      if(alt){ $("#fbAlt").onclick=()=>setFb("alt"); $("#fbAll").onclick=()=>{ d.model=alt.id; step(); renderComposer(); }; }
-      $("#fbSkip").onclick=()=>setFb("skip");
+      const allAlt = MODELS.find(x=>x.mode===d.mode && x.id!==m.id && d.formats.every(r=>x.ratios.includes(r)));
+      const rows = miss.map(r=>{ const alt=bestModelFor(r,d.mode);
+        return `<div class="fbrow"><span><b>${r}</b>${alt?"":` · no ${d.mode} model makes ${r} today`}</span><div class="acts">${alt?`<button data-fbalt="${r}">Make ${r} with ${alt.name}</button>`:""}<button data-fbskip="${r}">Skip ${r}</button></div></div>`; }).join("");
+      warnArea.insertAdjacentHTML("beforeend",`<div class="notice warn ${S.needChoice?"shake":""}" id="fbNotice"><span>${m.name} can't make ${miss.join(" or ")}. Choose for each ratio before you generate.</span>${rows}
+        <div class="acts">${allAlt?`<button id="fbAll">Use ${allAlt.name} for all ratios</button>`:""}<label><input type="checkbox" id="fbRemember" checked> Remember for ${esc(p.name)}</label></div></div>`);
+      S.needChoice=false;
+      const setFb = (r,v) => { const rem=$("#fbRemember").checked; p.fallback = p.fallback||{}; p.fallback[r]=v; if(!rem) p._tempFb=true; step(); renderChips(); renderNotices(); };
+      warnArea.querySelectorAll("[data-fbalt]").forEach(b=>b.onclick=()=>setFb(b.dataset.fbalt,"alt"));
+      warnArea.querySelectorAll("[data-fbskip]").forEach(b=>b.onclick=()=>setFb(b.dataset.fbskip,"skip"));
+      if(allAlt) $("#fbAll").onclick=()=>{ d.model=allAlt.id; step(); renderComposer(); };
     }
   }
 }
@@ -559,7 +572,8 @@ function syncFromPrompt(text){
 function renderResults(){
   const box=$("#results"), p=P();
   const list = S.version==="new" ? p.results : (S.old.owner===S.current ? S.old.results||[] : []);
-  if(!list.length){ box.innerHTML=`<div class="empty">${S.version==="new" ? `Nothing generated for ${esc(p.name)} yet. One Generate makes the whole ratio kit: ${p.preset.join(" + ")}.` : "Nothing generated yet. One Generate makes one image in one ratio."}</div>`; return; }
+  box.classList.toggle("isEmpty", !list.length);
+  if(!list.length){ box.innerHTML=`<div class="empty"><b style="color:var(--text)">Results appear here.</b> ${S.version==="new" ? `One Generate makes the whole ratio kit: ${p.preset.join(" + ")}.` : "One Generate makes one image in one ratio."} Start in the composer below ↓</div>`; return; }
   const have=new Set(list.map(x=>x.ratio)); const missing=RATIOS.filter(r=>!have.has(r)); const missPreset=p.preset.filter(r=>!have.has(r));
   box.innerHTML = list.map((a,i)=>{
     const [w,h]=a.ratio.split(":").map(Number); const width = Math.round(220*Math.sqrt(w/h));
@@ -607,8 +621,9 @@ function startPreflight(assets, isMore){
   const models=[...new Set(assets.map(a=>a.model))];
   const n = assets.length * (d.mode==="image" ? d.count : 1), noun = d.mode==="image" ? (n>1?"images":"image") : (n>1?"videos":"video");
   const detail = models.length===1 ? `${assets.map(a=>a.ratio).join(" + ")} on ${models[0]}` : assets.map(a=>`${a.ratio} on ${a.model}`).join(" · ");
+  const skipped = isMore ? [] : d.formats.filter(r=>!assets.some(a=>a.ratio===r));
   const area=$("#noticeArea");
-  area.insertAdjacentHTML("afterbegin",`<div class="preflight" id="pf"><div class="sum">Sending <b>${n} ${noun}</b> for ${esc(p.name)} · kit ${esc(d.kit)} · ${detail} · ${d.res}</div><span class="ring tabnum" id="pfCount">Sending in 5s</span><button class="btn small" id="pfCancel">Cancel</button><button class="btn small primary" id="pfNow">Send now</button><div class="bar2"><i id="pfBar"></i></div></div>`);
+  area.insertAdjacentHTML("afterbegin",`<div class="preflight" id="pf"><div class="sum">Sending <b>${n} ${noun}</b> for ${esc(p.name)} · kit ${esc(d.kit)} · ${detail} · ${d.res}${skipped.length?` · <b>skipping ${skipped.join(", ")}</b>`:""}</div><span class="ring tabnum" id="pfCount">Sending in 5s</span><button class="btn small" id="pfCancel">Cancel</button><button class="btn small primary" id="pfNow">Send now</button><div class="bar2"><i id="pfBar"></i></div></div>`);
   S.popOpen=false; renderChips(); $("#genBtn").disabled=true; $("#pf").scrollIntoView({block:"nearest",behavior:"smooth"});
   let t=0; const total=5000;
   pfTimer=setInterval(()=>{ t+=100; $("#pfBar").style.width=(t/total*100)+"%"; $("#pfCount").textContent=`Sending in ${Math.ceil((total-t)/1000)}s`; if(t>=total) go(); },100);
@@ -653,7 +668,7 @@ function startTest(v){
   if(S.test.on) stopTest(false);
   resetForRound(); setVersion(v);
   S.test={on:true,v,t0:Date.now(),steps:0,pop:null,timer:setInterval(tick,250)};
-  tick(); renderMission();
+  tick(); renderMission(); const g=$("#guide"); if(g){ g.open=false; g.hidden=true; }
 }
 function stopTest(done){
   clearInterval(S.test.timer);
@@ -663,7 +678,7 @@ function stopTest(done){
   S.test.on=false;
   if(!done){ $("#bigclock").textContent="00:00"; $("#bigsteps").textContent="0 steps"; }
   else $("#bigsteps").textContent=`${S.runs[v].s} steps · pack ready`;
-  renderMission(); render();
+  renderMission(); render(); const g=$("#guide"); if(g) g.hidden=false;
 }
 function renderMission(){
   $("#mission").classList.toggle("live",S.test.on);
@@ -716,6 +731,9 @@ $("#genBtn").onclick=()=>{
   step(); const d=D();
   if(!d.prompt.trim()){ $("#prompt").focus(); $("#prompt").placeholder="Describe what you want to create first"; return; }
   if(S.version==="old") S.old.owner=S.current;
+  if(S.version==="new"){ const m=M(d.model), p=P();
+    const open = m.auto ? [] : d.formats.filter(r=>!m.ratios.includes(r) && !(p.fallback && p.fallback[r]));
+    if(open.length){ S.needChoice=true; renderNotices(); const n=$("#fbNotice"); if(n) n.scrollIntoView({block:"nearest",behavior:"smooth"}); return; } }
   const assets=planAssets(); startPreflight(assets);
 };
 
@@ -743,6 +761,7 @@ S.defaultPreset=["9:16","1:1"];
 const pdlg=$("#pdlg"); let pd={formats:[],others:[]};
 function renderPd(){
   $("#pdChips").innerHTML=RATIOS.map(r=>`<button class="chip" data-r="${r}" aria-pressed="${pd.formats.includes(r)}">${shape(r)}${r} <span style="font-weight:500;opacity:.7">${RATIO_USE[r]}</span></button>`).join("");
+  $("#pdNote").textContent = pd.formats.includes("4:5") ? "4:5 is image only today. In video, you'll be asked to skip it or pick another ratio." : "";
   $("#pdChips").querySelectorAll(".chip").forEach(b=>b.onclick=()=>{ const r=b.dataset.r; pd.formats=pd.formats.includes(r)?pd.formats.filter(x=>x!==r):RATIOS.filter(x=>pd.formats.includes(x)||x===r); $("#pdErr").hidden=true; renderPd(); });
   const others=Object.entries(S.projects).filter(([k])=>k!==S.current);
   $("#pdOthers").innerHTML = others.length ? others.map(([k,p])=>`<button class="chip" data-o="${k}" aria-pressed="${pd.others.includes(k)}">${esc(p.name)} <span style="font-weight:500;opacity:.7">now ${p.preset.join(" + ")}</span></button>`).join("") : `<span style="font-size:12px;color:var(--faint)">No other projects yet</span>`;
